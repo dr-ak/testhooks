@@ -1,2 +1,2 @@
 # testhooks
-test test
+test
