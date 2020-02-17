@@ -1,0 +1,19 @@
+{
+    "port": ":8080",
+    "hooks": [
+        {
+            "from": "http://011af586.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
+            "to": "http://127.0.0.1:8081/users/alex/webhooks/github/project/job?arg1=val1&argn=valn"
+        },
+        {
+            "from": "http://3d324452.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
+            "to": "$cis_base_dir/core/$startjob internal/core_test"
+        },
+        {
+            "from": "http://3d324452d.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
+            "to": "ssh root@0.0.0.0 -p 32777 $cis_base_dir/core/$startjob internal/core_test"
+        }
+    ],
+    "root": "/home/alex/go/src/gitwebhook/",
+    "requestbodypath": "/jobs/internal/$job/request_body.json"
+}
