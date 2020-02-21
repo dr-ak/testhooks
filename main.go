@@ -88,12 +88,12 @@ func (p Params) getEnvVars() []string {
 
 func (p Params) readEnvVarsFromCis() []string {
 	result := make([]string, 0)
-	cisEnv, err := p.readConfFile("core/cis.conf")
+	cisEnv, err := p.readConfFile("/core/cis.conf")
 	if err != nil {
 		writeLog("logs/error.log", err.Error())
 	}
 	result = append(result, cisEnv...)
-	jobEnv, err := p.readConfFile("jobs/internal/" + p.getJobName() + "/job.conf")
+	jobEnv, err := p.readConfFile("/jobs/internal/" + p.getJobName() + "/job.conf")
 	if err != nil {
 		writeLog("logs/error.log", err.Error())
 	}
@@ -102,7 +102,7 @@ func (p Params) readEnvVarsFromCis() []string {
 }
 
 func (p Params) readConfFile(fileName string) ([]string, error) {
-	file, err := os.Open(p.Root + fileName)
+	file, err := os.Open(os.Getenv("cis_base_dir") + fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +114,16 @@ func (p Params) readConfFile(fileName string) ([]string, error) {
 		lines = append(lines, scanner.Text())
 	}
 	return lines, scanner.Err()
+}
+
+func (p Params) readEnvVarsFromCisOnSsh() []string {
+	result := make([]string, 0)
+	base_dir := getOutOfSshCommand(p, "echo $cis_base_dir")
+	cisEnv := strings.Split(getOutOfSshCommand(p, "cat "+base_dir+"/core/cis.conf"), "\n")
+	result = append(result, cisEnv...)
+	jobEnv := strings.Split(getOutOfSshCommand(p, "cat "+base_dir+"/jobs/internal/"+p.getJobName()+"/job.conf"), "\n")
+	result = append(result, jobEnv...)
+	return result
 }
 
 type SshParams struct {
@@ -226,7 +236,7 @@ func RunSsh(p Params) int {
 	}
 	defer session.Close()
 	envVars := make([]string, 0)
-	envVars = append(envVars, p.readEnvVarsFromCis()...)
+	envVars = append(envVars, p.readEnvVarsFromCisOnSsh()...)
 	envVars = append(envVars, p.getEnvVars()...)
 
 	for _, envVar := range envVars {
@@ -246,7 +256,7 @@ func RunSsh(p Params) int {
 	return http.StatusBadRequest
 }
 
-func getPathForCisBaseDirFromServer(p Params) string {
+func getOutOfSshCommand(p Params, command string) string {
 	sshParams := getSshParams(p.getHookTo())
 	client, err := ssh.Dial("tcp", sshParams.Host+":"+sshParams.Port, getClientConfig(sshParams.User))
 	if err != nil {
@@ -257,12 +267,16 @@ func getPathForCisBaseDirFromServer(p Params) string {
 		writeLog("logs/error.log", err.Error())
 	}
 	defer session.Close()
-	b, err := session.CombinedOutput("echo $cis_base_dir")
+	b, err := session.CombinedOutput(command)
 	if err != nil {
 		writeLog("logs/error.log", err.Error())
 	}
 	out := string(b)
-	return out[:len(out)-1]
+	if out[len(out)-1:] == "\n" {
+		return out[:len(out)-1]
+	} else {
+		return out
+	}
 }
 
 func moveFileOnSsh(p Params, from, to string) {
@@ -318,7 +332,7 @@ func сatchHook(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(resp.StatusCode)
 		} else if strings.HasPrefix(params.getHookTo(), "ssh") {
 			from := params.Root + "request_body.json"
-			to := getPathForCisBaseDirFromServer(params) + params.getRequestBodyPath()
+			to := getOutOfSshCommand(params, "echo $cis_base_dir") + params.getRequestBodyPath()
 			writeFile(from, body)
 			moveFileOnSsh(params, from, to)
 			writeFile(os.Getenv("cis_base_dir")+params.getRequestBodyPath(), body)
