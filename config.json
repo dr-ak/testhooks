@@ -1,19 +1,27 @@
 {
-    "port": ":8080",
+    "port": ":8081",
     "hooks": [
         {
-            "from": "http://011af586.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
-            "to": "http://127.0.0.1:8081/users/alex/webhooks/github/project/job?arg1=val1&argn=valn"
+            "fromurl": "http://f828e8abc7e155.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
+            "hooktype": "http",
+            "tourl": "http://127.0.0.1:8082/users/alex/webhooks/github/project/job?arg1=val1&argn=valn"
         },
         {
-            "from": "http://3d324452.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
-            "to": "$cis_base_dir/core/$startjob internal/core_test"
+            "fromurl": "http://f828e8abc7e155.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
+            "hooktype": "local",
+            "basedir": "/home/alex/go/src/gitwebhook/",
+            "job": "internal/core_test",
+            "requestbodypath": "jobs/internal/request_body.json"
         },
         {
-            "from": "http://3d324452d.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
-            "to": "ssh root@0.0.0.0 -p 32777 $cis_base_dir/core/$startjob internal/core_test"
+            "fromurl": "http://f828e8abc7e1.ngrok.io/users/alex/webhooks/github/project/job?arg1=val1&argn=valn",
+            "hooktype": "ssh",
+            "address": "0.0.0.0",
+            "port": "32768",
+            "user": "root",
+            "basedir": "/root/test_cis/",
+            "job": "internal/core_test",
+            "requestbodypath": "jobs/internal/request_body.json"
         }
-    ],
-    "root": "/home/alex/go/src/gitwebhook/",
-    "requestbodypath": "/jobs/internal/$job/request_body.json"
+    ]
 }
