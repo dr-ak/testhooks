@@ -11,32 +11,17 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var params Params
+var handlers []HookHandler
 
-type Params struct {
+type TempParams struct {
 	Port  string
 	Hooks []map[string]string
 }
 
-func (p Params) getHookHandler(url string) HookHandler {
-	for _, hook := range p.Hooks {
-		if hook["fromurl"] == url {
-			switch hook["hooktype"] {
-			case "http":
-				var hookHandler HTTPHookHandler
-				MapToStruct(hook, &hookHandler)
-				return hookHandler
-			case "local":
-				var hookHandler LocalHookHandler
-				MapToStruct(hook, &hookHandler)
-				return hookHandler
-			case "ssh":
-				var hookHandler SSHHookHandler
-				MapToStruct(hook, &hookHandler)
-				return hookHandler
-			default:
-				return nil
-			}
+func getHookHandler(url string) HookHandler {
+	for _, handler := range handlers {
+		if handler.getFromUrl() == url {
+			return handler
 		}
 	}
 	return nil
@@ -53,20 +38,39 @@ func MapToStruct(m map[string]string, val interface{}) {
 	}
 }
 
-func getParams() (out Params) {
+func getHandlers() (out []HookHandler, port string) {
+	var params TempParams
 	jsonData, err := ioutil.ReadFile("config.json")
 	if err != nil {
 		writeLog("logs/error.log", err.Error())
 	}
-	err = json.Unmarshal(jsonData, &out)
+	err = json.Unmarshal(jsonData, &params)
 	if err != nil {
 		writeLog("logs/error.log", err.Error())
 	}
-	return out
+	port = params.Port
+	for _, hook := range params.Hooks {
+		switch hook["hooktype"] {
+		case "http":
+			var hookHandler HTTPHookHandler
+			MapToStruct(hook, &hookHandler)
+			out = append(out, hookHandler)
+		case "local":
+			var hookHandler LocalHookHandler
+			MapToStruct(hook, &hookHandler)
+			out = append(out, hookHandler)
+		case "ssh":
+			var hookHandler SSHHookHandler
+			MapToStruct(hook, &hookHandler)
+			out = append(out, hookHandler)
+		}
+	}
+	return
 }
 
 type HookHandler interface {
 	handle(w http.ResponseWriter, r *http.Request, body []byte) bool
+	getFromUrl() string
 }
 
 func сatchHook(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +86,7 @@ func сatchHook(w http.ResponseWriter, r *http.Request) {
 	}
 	url := "http://" + r.Host + r.URL.String()
 	success := "false"
-	hookHandler := params.getHookHandler(url)
+	hookHandler := getHookHandler(url)
 	if hookHandler.handle(w, r, body) {
 		success = "true"
 	}
@@ -114,10 +118,11 @@ func getEventType() string {
 }
 
 func main() {
-	params = getParams()
+	port := "8080"
+	handlers, port = getHandlers()
 	r := mux.NewRouter()
 	r.HandleFunc("/users/{username}/webhooks/{platform}/{project}/{job}", сatchHook)
 	http.Handle("/", r)
-	fmt.Println("starting server at " + params.Port)
-	http.ListenAndServe(params.Port, nil)
+	fmt.Println("starting server at " + port)
+	http.ListenAndServe(port, nil)
 }
